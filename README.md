@@ -15,7 +15,7 @@
 | 협업 기록 | [docs/collaboration-log.md](docs/collaboration-log.md) |
 | 기획서 / 기능요구명세서 | [docs/기획서.md](docs/기획서.md) / [docs/기능요구명세서.md](docs/기능요구명세서.md) |
 
-> 백엔드는 무료 인스턴스라 한동안 요청이 없으면 잠듭니다. 첫 질문은 30초~1분이 걸릴 수 있습니다.
+> 백엔드는 무료 인스턴스입니다. 서버가 잠들지 않도록 5분마다 점검 요청을 보내고, 페이지를 열 때도 서버를 미리 깨웁니다. 자세한 내용은 [응답 속도](#응답-속도)를 참고하세요.
 
 ## 프로젝트 소개
 
@@ -23,7 +23,7 @@
 
 - 종목을 물으면 비서가 **시세·지표를 직접 조회**해 초보 눈높이로 브리핑합니다. (AI Agent)
 - 차트 이미지를 올리면 **추세와 주요 구간을 읽어** 말로 설명합니다. (멀티모달)
-- 대화 기록을 저장하고, 대화 중에는 앞선 맥락을 이어서 답합니다. (Long-term Memory)
+- 대화 기록을 사용자별로 저장하고, 다시 방문하면 지난 대화를 불러와 이어서 답합니다. (Long-term Memory)
 
 자세한 문제 정의와 설계 근거는 [기획서](docs/기획서.md)를 참고하세요.
 
@@ -67,7 +67,7 @@
 |-----------|-----------|------|
 | **AI Agent** | 질문에서 종목을 인식(사전 → 모델 추론)하고 `get_price`·`get_indicators` 도구를 호출해, 조회 결과를 근거로 브리핑을 생성 | [chat_service.py](backend/app/services/chat_service.py), [market_service.py](backend/app/services/market_service.py) |
 | **멀티모달** | 차트 이미지를 Gemini 비전으로 읽어 추세·지지/저항·특징을 설명 | [vision_service.py](backend/app/services/vision_service.py), [routers/chart.py](backend/app/routers/chart.py) |
-| **Long-term Memory** | 대화를 Firestore에 저장하고, 대화 중에는 이전 메시지를 함께 보내 맥락을 유지 | [conversation_service.py](backend/app/services/conversation_service.py) |
+| **Long-term Memory** | 동의한 브라우저에 익명 사용자 ID를 만들고, 대화를 그 ID와 함께 Firestore에 저장. 재방문 시 마지막 대화를 자동으로 불러와 맥락을 이어감 | [conversation_service.py](backend/app/services/conversation_service.py), [routers/conversations.py](backend/app/routers/conversations.py), [frontend/index.html](frontend/index.html) |
 
 지정된 OpenAI 엔드포인트가 function calling을 지원하지 않아, Agent는 "종목 인식 → 도구 실행 → 결과 주입" 순서의 라우터 방식으로 구현했습니다. 프롬프트는 현황 설명과 지표 해석으로 한정하고, 매수·매도 권유를 하지 않도록 했습니다.
 
@@ -78,13 +78,13 @@
 | FR-01 | 대화형 질의응답 | 구현 | `POST /api/chat` | [routers/chat.py](backend/app/routers/chat.py), [chat_service.py](backend/app/services/chat_service.py) |
 | FR-02 | 시세·지표 조회 (Agent) | 구현 | `POST /api/chat` 내부 도구 호출 | [market_service.py](backend/app/services/market_service.py) |
 | FR-03 | 차트 이미지 해석 (멀티모달) | 구현 | `POST /api/chart` | [routers/chart.py](backend/app/routers/chart.py), [vision_service.py](backend/app/services/vision_service.py) |
-| FR-04 | 대화기록 저장·맥락 유지 | 부분 구현 | `POST /api/chat`, `GET /api/conversations` | [conversation_service.py](backend/app/services/conversation_service.py) |
+| FR-04 | 대화기록 저장·맥락 유지 | 구현 | `POST /api/chat`, `GET /api/conversations/latest?user_id=` | [conversation_service.py](backend/app/services/conversation_service.py), [routers/conversations.py](backend/app/routers/conversations.py) |
 | FR-05 | 관심종목 관리 (Should) | 미구현 | - | - |
 | FR-06 | AI 고지·투자 유의 표시 | 구현 | - | [frontend/index.html](frontend/index.html) 상단 고정 배너 |
 | FR-07 | 개인정보 수집 동의 | 구현 | - | [frontend/index.html](frontend/index.html) 첫 방문 동의창 |
 | FR-08 | 사용자 피드백 수집 (Could) | 구현 | 구글폼 | [docs/user-test/](docs/user-test/) |
 
-- FR-04: 대화는 Firestore에 저장되고 한 대화 안에서는 맥락이 유지됩니다. 사용자 계정별 구분과 다음 방문 시 자동 불러오기는 구현하지 않았습니다.
+- FR-04: 개인정보 수집에 동의하면 브라우저에 익명 사용자 ID가 만들어지고, 대화가 이 ID와 함께 저장됩니다. 다시 방문하면 마지막 대화를 자동으로 불러오며, "새 대화 시작"으로 비울 수 있습니다. 로그인이 없으므로 다른 기기·브라우저와는 이어지지 않습니다.
 - 동작 증거(화면 캡처, `/health` 응답)는 [배포·운영 증빙](docs/deploy-evidence.md)에 있습니다.
 
 ## 실행 방법
@@ -119,6 +119,19 @@ FIREBASE_KEY_PATH=serviceAccountKey.json   # 로컬: Firebase 서비스 계정 �
 
 Firebase 키가 없으면 서버가 시작되지 않습니다. 키 파일과 `.env`는 저장소에 올리지 않습니다.
 
+## 응답 속도
+
+목표(NFR-01)는 일반 질의 5초 이내입니다. 무료 인스턴스가 잠들면 첫 요청이 느려지는 문제를 다음과 같이 줄였습니다.
+
+| 조치 | 내용 | 위치 |
+|------|------|------|
+| 서버 상시 유지 | 5분마다 `/health`에 점검 요청을 보내 서버가 잠들지 않게 함 | [healthcheck.yml](.github/workflows/healthcheck.yml) |
+| 미리 깨우기 | 페이지를 여는 즉시 `/health`를 호출해, 사용자가 화면을 읽는 동안 서버를 준비시킴 | [frontend/index.html](frontend/index.html) |
+| 이미지 축소 | 차트 이미지를 전송 전에 최대 1280px로 줄여 전송·분석 시간을 줄임 | [frontend/index.html](frontend/index.html) |
+| 응답 시간 표시 | 답변마다 실제 걸린 시간을 화면에 표시해 지연을 바로 확인 | [frontend/index.html](frontend/index.html) |
+
+차트 이미지 해석은 비전 모델 호출이 포함되어 일반 질의보다 오래 걸립니다.
+
 ## 사용자 테스트 결과
 
 - **테스터**: 5명 (주식 투자 경험자 및 관심 사용자), 2026-11-08, 구글폼 3문항
@@ -128,7 +141,7 @@ Firebase 키가 없으면 서버가 시작되지 않습니다. 키 파일과 `.e
 
 | 받은 피드백 | 조치 | 상태 |
 |-------------|------|------|
-| 이미지 분석 대기가 길게 느껴진다 | 로딩 스피너 추가 | 반영 |
+| 이미지 분석 대기가 길게 느껴진다 | 로딩 스피너 추가, 서버 미리 깨우기·상시 유지, 응답 시간 표시 | 반영 |
 | 모바일에서 차트 업로드 버튼이 잘 안 보인다 | 버튼 강조색, 모바일에서 전체 폭 | 반영 |
 | 모바일에서 글이 많아 읽기 피로하다 | 3줄 요약 카드 우선 노출 | 예정 |
 | 미국 종목·해외 ETF 차트 지원 | 데이터 연동 검토 | 중장기 |
@@ -155,11 +168,11 @@ Firebase 키가 없으면 서버가 시작되지 않습니다. 키 파일과 `.e
 - PR 목록: https://github.com/gudwls3805-dev/chartmate/pulls?q=is%3Apr
 
 ### 기여 기록
-| 팀원 | GitHub | 커밋 수 (2026-11-14 19:30 기준) | 주요 커밋 |
+| 팀원 | GitHub | 커밋 수 (2026-11-16 기준, 병합 커밋 제외) | 주요 커밋 |
 |------|--------|-------------------------------|-----------|
 | 전민재 | QWERQWER-qwer | 6 | 초기 구조·문서, AI Agent, 멀티모달 차트 분석, 배포 설정 |
 | 윤태성 | yts-cmd | 7 | AI 윤리 문구, 구글폼 링크, 테스트 응답 정리, 피드백 요약 |
-| 김경민 | gudwls3805-dev | 2 | 프론트엔드 UI(배너·동의창·업로드 미리보기), 발표자료 |
+| 김경민 | gudwls3805-dev | 10 이상 | 프론트엔드 UI(배너·동의창·업로드 미리보기), 대화 복원·응답 속도 개선, README·증빙 문서, CI·가용성 점검, 발표자료 (PR #1~#4) |
 
 - 전체 커밋 기록: https://github.com/gudwls3805-dev/chartmate/commits/main
 - 기여자 그래프: https://github.com/gudwls3805-dev/chartmate/graphs/contributors
@@ -168,6 +181,9 @@ Firebase 키가 없으면 서버가 시작되지 않습니다. 키 파일과 `.e
 
 - 백엔드는 **black**(포맷)과 **ruff**(린트, import 정렬)를 사용합니다. 설정은 [backend/pyproject.toml](backend/pyproject.toml)에 있습니다.
 - [CI 워크플로](.github/workflows/ci.yml)가 `main` push와 모든 PR에서 `ruff check`, `black --check`, 문법 검사를 실행합니다.
+- 실행 결과: https://github.com/gudwls3805-dev/chartmate/actions/workflows/ci.yml
+
+![CI·가용성 점검 성공 화면](docs/images/evidence-actions-success.png)
 
 ```bash
 cd backend
@@ -179,6 +195,7 @@ ruff check . && black --check .
 
 - 모든 화면 상단에 "AI가 생성한 투자 참고용 자료이며 투자자문·매매 권유가 아님"을 고지합니다.
 - 첫 방문 시 대화 내용 저장에 대한 동의를 받습니다. 동의하지 않으면 대화 기능을 사용할 수 없고, 차트 이미지 분석만 이용할 수 있습니다.
+- 사용자 구분에는 이름·이메일 대신 브라우저에서 무작위로 만든 익명 ID만 사용합니다. 동의한 경우에만 만들고, 동의를 철회하면 브라우저에서 지웁니다.
 - 민감정보는 수집하지 않습니다. 전문은 [ai-ethics-notice.md](docs/ai-ethics-notice.md)에 있습니다.
 
 ## 한계
@@ -186,7 +203,7 @@ ruff check . && black --check .
 - 비공식 시세 API(yfinance)를 사용해 실시간성과 정확성이 보장되지 않습니다.
 - 차트 해석은 비전 모델의 '관찰'이며 미래 예측이 아닙니다. 차트가 아닌 이미지도 해석할 수 있습니다.
 - 텍스트 지표는 일봉 기준(이동평균 60·200일, 모멘텀 126일, ATR)만 제공합니다.
-- 관심종목 관리와 사용자별 대화 불러오기는 구현하지 않았습니다.
+- 관심종목 관리는 구현하지 않았습니다. 대화 복원은 로그인 없이 브라우저별 익명 ID로 하므로, 다른 기기나 브라우저에서는 이어지지 않습니다.
 - 본 서비스는 투자 참고용이며 투자자문·매매 권유가 아닙니다.
 
 상세한 한계와 구현·미구현 구분은 [기획서 7장](docs/기획서.md)에 있습니다.

@@ -63,6 +63,9 @@
     .declined{display:none;background:var(--accent-soft);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;margin-bottom:12px;}
     .declined.on{display:block;}
     .declined a{color:var(--accent);font-weight:700;cursor:pointer;text-decoration:underline;}
+    .restored{align-self:center;font-size:13px;color:var(--muted);background:var(--accent-soft);border-radius:999px;padding:5px 14px;}
+    .restored a,.newchat{color:var(--accent);font-weight:700;cursor:pointer;text-decoration:underline;}
+    .a .took{color:var(--muted);font-size:12px;margin-top:6px;}
     footer{max-width:720px;margin:0 auto;padding:0 16px 30px;color:var(--muted);font-size:12px;}
   </style>
 </head>
@@ -134,11 +137,27 @@
     let consent = null;
     try { consent = localStorage.getItem(CONSENT_KEY); } catch(e) {}
 
+    // ── 익명 사용자 ID (동의한 브라우저에만 생성) — 재방문 시 대화 복원에 사용 ──
+    const UID_KEY = "chartmate_uid";
+    const FRESH_KEY = "chartmate_fresh"; // "새 대화"를 누른 뒤에는 복원하지 않음
+    function getUid(){
+      if (consent !== "yes") return null;
+      let id = null;
+      try { id = localStorage.getItem(UID_KEY); } catch(e) {}
+      if (!id) {
+        id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+           : "u-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12);
+        try { localStorage.setItem(UID_KEY, id); } catch(e) {}
+      }
+      return id;
+    }
+
     function openConsent(){ document.getElementById("consentBg").classList.add("on"); }
     function setConsent(ok){
       consent = ok ? "yes" : "no";
       try { localStorage.setItem(CONSENT_KEY, consent); } catch(e) {}
       document.getElementById("consentBg").classList.remove("on");
+      if (!ok) { try { localStorage.removeItem(UID_KEY); } catch(e) {} } // 동의 철회 시 ID 폐기
       applyConsent();
     }
     function applyConsent(){
@@ -163,18 +182,24 @@
     function addLoading(){
       const el = document.createElement("div");
       el.className = "loading";
-      el.innerHTML = '<span class="spinner" aria-hidden="true"></span><span>분석 중… (무료 서버라 처음엔 30초~1분 걸릴 수 있어요)</span>';
+      el.innerHTML = '<span class="spinner" aria-hidden="true"></span><span id="loadingText">분석 중…</span>';
+      clearTimeout(slowTimer);
+      slowTimer = setTimeout(() => {
+        const t = document.getElementById("loadingText");
+        if (t) t.textContent = "분석 중… 서버를 깨우고 있어요. 조금만 기다려 주세요.";
+      }, 8000);
       el.id = "loading";
       feed.appendChild(el);
       scroll();
     }
-    function removeLoading(){ const l=document.getElementById("loading"); if(l) l.remove(); }
+    let slowTimer = null;
+    function removeLoading(){ clearTimeout(slowTimer); const l=document.getElementById("loading"); if(l) l.remove(); }
 
     // 브리핑 텍스트를 보기 좋게 렌더
     function mdInline(s){
       return escapeHtml(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
     }
-    function addAssistant(text){
+    function addAssistant(text, tookMs){
       const el = document.createElement("div");
       el.className = "a";
       const lines = (text || "").split("\n").map(l => l.trim())
@@ -196,6 +221,12 @@
         }
         el.appendChild(d);
       });
+      if (typeof tookMs === "number") {
+        const t = document.createElement("div");
+        t.className = "took";
+        t.textContent = "응답 시간 " + (tookMs / 1000).toFixed(1) + "초";
+        el.appendChild(t);
+      }
       feed.appendChild(el);
       scroll();
     }
@@ -211,16 +242,18 @@
       sendBtn.disabled = true;
       addUser(msg);
       addLoading();
+      const t0 = performance.now();
       try{
         const res = await fetch(`${API_BASE_URL}/api/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: msg, history })
+          body: JSON.stringify({ message: msg, history, user_id: getUid() })
         });
         const data = await res.json();
         removeLoading();
         if (data.answer){
-          addAssistant(data.answer);
+          try { localStorage.removeItem(FRESH_KEY); } catch(e) {}
+          addAssistant(data.answer, performance.now() - t0);
           history.push({ role:"user", content: msg });
           history.push({ role:"assistant", content: data.answer });
         } else {
@@ -302,6 +335,7 @@
       if(!file) return;
       addUserImage(file);
       addLoading();
+      const t0 = performance.now();
       try{
         const blob = await resizeImage(file);
         const fd = new FormData();
@@ -311,7 +345,7 @@
         const data = await res.json();
         removeLoading();
         if(data.analysis){
-          addAssistant(data.analysis);
+          addAssistant(data.analysis, performance.now() - t0);
           history.push({ role:"user", content:"[차트 이미지 업로드]" });
           history.push({ role:"assistant", content: data.analysis });
         } else {
@@ -324,6 +358,39 @@
         const f = document.getElementById("chartfile"); if(f) f.value = "";
       }
     }
+
+    // ── 시작 시 ① 서버 미리 깨우기 ② 이전 대화 복원 ──
+    // 무료 서버는 한동안 요청이 없으면 잠든다. 사용자가 화면을 읽는 동안 미리 깨워 첫 응답을 줄인다.
+    fetch(`${API_BASE_URL}/health`).catch(() => {});
+
+    function newChat(){
+      history = [];
+      feed.innerHTML = "";
+      try { localStorage.setItem(FRESH_KEY, "1"); } catch(e) {}
+      input.focus();
+    }
+
+    async function restoreConversation(){
+      if (consent !== "yes") return;
+      let uid = null, fresh = null;
+      try { uid = localStorage.getItem(UID_KEY); fresh = localStorage.getItem(FRESH_KEY); } catch(e) {}
+      if (!uid || fresh) return;
+      try{
+        const res = await fetch(`${API_BASE_URL}/api/conversations/latest?user_id=${encodeURIComponent(uid)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const msgs = (data.messages || []).filter(m => m && m.content);
+        if (!msgs.length || history.length) return; // 그 사이 새 대화를 시작했으면 덮어쓰지 않음
+        msgs.forEach(m => m.role === "user" ? addUser(m.content) : addAssistant(m.content));
+        history = msgs.map(m => ({ role: m.role, content: m.content }));
+        const note = document.createElement("div");
+        note.className = "restored";
+        note.innerHTML = '지난 대화를 불러왔어요 · <a onclick="newChat()">새 대화 시작</a>';
+        feed.appendChild(note);
+        scroll();
+      }catch(e){ /* 복원 실패는 조용히 넘어간다 */ }
+    }
+    restoreConversation();
 
     // Win+Shift+S로 캡처한 이미지를 Ctrl+V로 붙여넣으면 미리보기에 올라감
     document.addEventListener("paste", (e) => {

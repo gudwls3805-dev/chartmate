@@ -25,6 +25,19 @@ def get_all_conversations() -> list:
     return [{"id": doc.id, **doc.to_dict()} for doc in docs]
 
 
+def get_latest_conversation(user_id: str):
+    """해당 사용자의 가장 최근 대화 (없으면 None).
+
+    대화는 매 응답마다 '그때까지의 전체 메시지'로 저장되므로, 가장 최근 문서 하나가
+    곧 그 사용자의 마지막 대화 전체다. 복합 색인이 필요 없도록 정렬은 서버에서 한다.
+    """
+    docs = db.collection(COLLECTION).where("user_id", "==", user_id).stream()
+    items = [{"id": doc.id, **doc.to_dict()} for doc in docs]
+    if not items:
+        return None
+    return max(items, key=lambda c: c.get("created_at", ""))
+
+
 def get_conversation(doc_id: str):
     """특정 대화 전체 불러오기 (없으면 None)"""
     doc = db.collection(COLLECTION).document(doc_id).get()

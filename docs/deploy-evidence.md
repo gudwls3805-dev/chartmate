@@ -11,7 +11,7 @@ ChartMate가 외부에서 접근 가능한 형태로 배포되어 동작하고 �
 | 백엔드 상태 확인 | https://chartmate.onrender.com/health | Render |
 | API 문서 (FastAPI 자동 생성) | https://chartmate.onrender.com/docs | Render |
 
-> Render 무료 인스턴스는 일정 시간 요청이 없으면 잠들어, 첫 요청에 30초~1분이 걸릴 수 있습니다.
+> Render 무료 인스턴스는 일정 시간 요청이 없으면 잠듭니다. 이를 막기 위해 5분마다 점검 요청을 보내고, 프론트엔드도 페이지를 열 때 서버를 미리 깨웁니다.
 
 ## 2. 실행 확인 (2026-11-14 캡처)
 
@@ -52,10 +52,14 @@ curl https://chartmate.onrender.com/health
 
 ## 3. 운영 가용성 기록
 
-- **주기 점검**: [`.github/workflows/healthcheck.yml`](../.github/workflows/healthcheck.yml)이 30분마다 백엔드 `/health`와 프론트엔드 주소에 요청을 보내고, 응답 코드와 응답 시간을 실행 기록에 남깁니다.
+- **주기 점검**: [`.github/workflows/healthcheck.yml`](../.github/workflows/healthcheck.yml)이 5분마다 백엔드 `/health`와 프론트엔드 주소에 요청을 보내고, 응답 코드와 응답 시간을 실행 기록에 남깁니다.
 - **기록 위치**: GitHub 저장소의 **Actions → Uptime check** 탭에서 실행별 성공·실패와 로그를 볼 수 있습니다.
   https://github.com/gudwls3805-dev/chartmate/actions/workflows/healthcheck.yml
-- 점검은 2026-11-14에 추가했으며, 그 이전 기간의 가용성 기록은 없습니다.
+- 점검은 2026-11-16에 추가했으며, 그 이전 기간의 가용성 기록은 없습니다. GitHub가 실행 기록과 로그를 90일간 보존합니다.
+
+2026-11-16 실행 결과 화면입니다. 가용성 점검(Uptime check)과 코드 검사(CI)가 모두 성공했습니다.
+
+![Actions 실행 성공](images/evidence-actions-success.png)
 
 ## 4. 배포 방식
 
