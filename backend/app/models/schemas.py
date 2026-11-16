@@ -44,3 +44,8 @@ class ChatIn(BaseModel):
 
     message: str = Field(..., description="사용자 질문")
     history: List[Message] = Field(default=[], description="이전 대화 메시지 (선택)")
+    user_id: Optional[str] = Field(
+        None,
+        max_length=64,
+        description="브라우저별 익명 사용자 ID. 개인정보 동의 후 프론트에서 생성하며, 재방문 시 대화 복원에 쓴다.",
+    )

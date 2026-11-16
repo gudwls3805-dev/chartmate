@@ -104,7 +104,7 @@ SYSTEM_PROMPT = (
 )
 
 
-def chat(user_message: str, history: list) -> dict:
+def chat(user_message: str, history: list, user_id: str | None = None) -> dict:
     # 1) 종목 인식 (사전 → 모델 폴백)
     ticker = _detect_ticker(user_message) or _plan_with_model(user_message)
 
@@ -142,6 +142,10 @@ def chat(user_message: str, history: list) -> dict:
         {"role": "user", "content": user_message},
         {"role": "assistant", "content": answer},
     ]
-    conv = create_conversation({"title": user_message[:20], "messages": saved_messages})
+    conv_data = {"title": user_message[:20], "messages": saved_messages}
+    if user_id:
+        # 사용자별 대화 복원(Long-term Memory)을 위해 익명 사용자 ID를 함께 저장
+        conv_data["user_id"] = user_id
+    conv = create_conversation(conv_data)
 
     return {"answer": answer, "conversation_id": conv["id"], "ticker": ticker}

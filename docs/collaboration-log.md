@@ -37,6 +37,17 @@
 
 ## 4. 코드 협업 기록
 
+2026-11-14부터 작업을 브랜치에서 하고 Pull Request로 `main`에 병합했습니다. 아래는 PR #3이 검사 3개를 통과한 뒤 병합된 화면입니다.
+
+![PR 병합 화면](images/evidence-pr-merged.png)
+
+| PR | 브랜치 | 내용 |
+|----|--------|------|
+| [#1](https://github.com/gudwls3805-dev/chartmate/pull/1) | `docs/readme-evidence` | README 보완, 배포·운영 증빙, 아키텍처 이미지 |
+| [#2](https://github.com/gudwls3805-dev/chartmate/pull/2) | `chore/lint-format` | black·ruff 설정과 백엔드 포맷 적용 |
+| [#3](https://github.com/gudwls3805-dev/chartmate/pull/3) | `docs/collab-log` | 협업 기록과 커뮤니케이션 방식 |
+| [#4](https://github.com/gudwls3805-dev/chartmate/pull/4) | `feature/conversation-restore` | 사용자별 대화 저장·복원, 응답 속도 개선 |
+
 - Pull Request: https://github.com/gudwls3805-dev/chartmate/pulls?q=is%3Apr
 - 커밋 기록: https://github.com/gudwls3805-dev/chartmate/commits/main
 - 기여자 그래프: https://github.com/gudwls3805-dev/chartmate/graphs/contributors
