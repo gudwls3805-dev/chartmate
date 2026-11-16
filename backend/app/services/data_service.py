@@ -3,6 +3,7 @@
 원본 미션의 데이터 기능을 유지하되, 일회성 분석 스크립트(analyze.py) 의존을
 제거하고 요약을 Firestore 데이터로 자체 계산한다.
 """
+
 from app.database import db
 
 COLLECTION = "data"

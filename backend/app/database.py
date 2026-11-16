@@ -1,7 +1,9 @@
 import json
+
 import firebase_admin
 from firebase_admin import credentials, firestore
-from app.config import FIREBASE_SERVICE_ACCOUNT_JSON, FIREBASE_KEY_PATH
+
+from app.config import FIREBASE_KEY_PATH, FIREBASE_SERVICE_ACCOUNT_JSON
 
 
 def init_firestore():

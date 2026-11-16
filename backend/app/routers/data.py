@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+
 from app.models.schemas import DataIn, DataUpdate
 from app.services import data_service
 

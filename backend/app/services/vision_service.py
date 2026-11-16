@@ -7,6 +7,7 @@ Gemini 비전(gemini-3.5-flash)으로 처리한다.
 무료 인스턴스(512MB)에서 startup이 막힐 수 있어, import·클라이언트 생성을
 '첫 차트 요청 때'로 미루는 지연 로딩(lazy)으로 둔다.
 """
+
 import time
 
 from app.config import GEMINI_API_KEY
@@ -35,6 +36,7 @@ def _get_client():
         if not GEMINI_API_KEY:
             return None
         from google import genai  # 지연 import
+
         _client = genai.Client(api_key=GEMINI_API_KEY)
     return _client
 
@@ -47,7 +49,6 @@ def analyze_chart(image_bytes: bytes, mime_type: str = "image/png", user_note: s
     from google.genai import types  # 지연 import
 
     text = VISION_PROMPT + (f"\n\n사용자 메모: {user_note}" if user_note else "")
-    last_err = None
     for attempt in range(3):
         try:
             resp = client.models.generate_content(
@@ -59,7 +60,6 @@ def analyze_chart(image_bytes: bytes, mime_type: str = "image/png", user_note: s
             )
             return {"analysis": resp.text}
         except Exception as e:
-            last_err = e
             msg = str(e)
             if "503" in msg or "UNAVAILABLE" in msg or "high demand" in msg:
                 time.sleep(2 * (attempt + 1))

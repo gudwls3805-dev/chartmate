@@ -7,6 +7,7 @@ ChartMate의 Agent가 호출하는 두 개의 도구:
 지표 선정 근거: 과거 트레이딩 봇 작업에서 실제로 쓰고 유효성을 확인한
 이동평균·모멘텀 + 변동성(ATR) 중심. (기획서 6장 참조)
 """
+
 import pandas as pd
 import yfinance as yf
 
@@ -42,9 +43,9 @@ def _atr(df, period: int = 14):
         return None
     high, low, close = sub["High"], sub["Low"], sub["Close"]
     prev_close = close.shift(1)
-    tr = pd.concat(
-        [(high - low), (high - prev_close).abs(), (low - prev_close).abs()], axis=1
-    ).max(axis=1)
+    tr = pd.concat([(high - low), (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(
+        axis=1
+    )
     atr = tr.rolling(period).mean().iloc[-1]
     return float(atr) if pd.notna(atr) else None
 

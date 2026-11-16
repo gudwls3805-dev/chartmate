@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()  # .env 파일을 읽어 환경변수로 로드
