@@ -4,7 +4,7 @@ name: Uptime check (배포 서비스 가용성 기록)
 # 결과를 Actions 실행 기록으로 남긴다. (운영 가용성 증빙)
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
