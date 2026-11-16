@@ -12,6 +12,7 @@
 | API 문서 | https://chartmate.onrender.com/docs |
 | 발표 자료 | [docs/presentation.pdf](docs/presentation.pdf) |
 | 배포·운영 증빙 | [docs/deploy-evidence.md](docs/deploy-evidence.md) |
+| 협업 기록 | [docs/collaboration-log.md](docs/collaboration-log.md) |
 | 기획서 / 기능요구명세서 | [docs/기획서.md](docs/기획서.md) / [docs/기능요구명세서.md](docs/기능요구명세서.md) |
 
 > 백엔드는 무료 인스턴스라 한동안 요청이 없으면 잠듭니다. 첫 질문은 30초~1분이 걸릴 수 있습니다.
@@ -141,8 +142,11 @@ Firebase 키가 없으면 서버가 시작되지 않습니다. 키 파일과 `.e
 역할은 [팀원 작업 가이드](docs/팀원가이드.md)로 나누었고, 각자 맡은 작업을 본인 GitHub 계정으로 커밋했습니다.
 
 ### 커뮤니케이션
-- [사용한 채널과 미팅 일시를 기입 — 예: 카카오톡 단체방, 11월 0일 온라인 미팅]
-- 미팅 캡처와 대화 기록은 `docs/images/`에 정리합니다.
+- Discord 채널에서 비동기로 소통했습니다.
+- 11월 3일: 제출물 기준으로 전체 할 일을 단계별로 나누고 담당을 정했습니다.
+- 11월 4일: 프론트엔드와 사용자 테스트·문서 담당에게 작업 내용과 완료 기준을 전달했습니다.
+- 11월 8일: 사용자 테스트 결과를 공유하고, 개선 과제를 프론트엔드에 반영하기로 했습니다.
+- 대화 캡처와 날짜별 정리는 [협업 기록](docs/collaboration-log.md)에 있습니다.
 
 ### 브랜치 전략
 - `main`: 배포 브랜치. push되면 프론트엔드가 자동 배포됩니다.
