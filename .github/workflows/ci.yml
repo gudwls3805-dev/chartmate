@@ -1,1 +1,27 @@
+name: CI (lint · format · compile)
 
+# main으로의 push와 모든 PR에서 백엔드 코드 스타일과 문법을 검사한다.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install lint tools
+        run: pip install "ruff==0.16.9" "black==26.5.1"
+      - name: Ruff (lint)
+        run: ruff check .
+      - name: Black (format check)
+        run: black --check .
+      - name: Compile all modules (syntax check)
+        run: python -m compileall -q app
