@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
+
 from firebase_admin import firestore
+
 from app.database import db
 
 COLLECTION = "conversations"

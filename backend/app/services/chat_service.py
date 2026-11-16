@@ -7,6 +7,7 @@
   2) 도구 실행: get_price / get_indicators 호출
   3) 답변 생성: 조회 결과를 주입해 '짧은 브리핑'으로 응답
 """
+
 import json
 import re
 
@@ -25,11 +26,24 @@ MODEL = "gpt-5-mini"
 
 # 자주 쓰는 한글 종목명 → 티커 (빠르고 확실한 1차 인식)
 NAME_TO_TICKER = {
-    "엔비디아": "NVDA", "애플": "AAPL", "테슬라": "TSLA", "마이크로소프트": "MSFT",
-    "구글": "GOOGL", "알파벳": "GOOGL", "아마존": "AMZN", "메타": "META",
-    "넷플릭스": "NFLX", "브로드컴": "AVGO", "마이크론": "MU", "팔란티어": "PLTR",
-    "AMD": "AMD", "인텔": "INTC", "비트코인": "BTC-USD", "이더리움": "ETH-USD",
-    "삼성전자": "005930.KS", "SK하이닉스": "000660.KS",
+    "엔비디아": "NVDA",
+    "애플": "AAPL",
+    "테슬라": "TSLA",
+    "마이크로소프트": "MSFT",
+    "구글": "GOOGL",
+    "알파벳": "GOOGL",
+    "아마존": "AMZN",
+    "메타": "META",
+    "넷플릭스": "NFLX",
+    "브로드컴": "AVGO",
+    "마이크론": "MU",
+    "팔란티어": "PLTR",
+    "AMD": "AMD",
+    "인텔": "INTC",
+    "비트코인": "BTC-USD",
+    "이더리움": "ETH-USD",
+    "삼성전자": "005930.KS",
+    "SK하이닉스": "000660.KS",
 }
 _STOP = {"AI", "RSI", "ATR", "ETF", "USD", "PER", "CEO", "API", "GPT", "ChartMate".upper()}
 
@@ -62,7 +76,7 @@ def _plan_with_model(message: str):
         )
         text = resp.choices[0].message.content or ""
         s, e = text.find("{"), text.rfind("}")
-        plan = json.loads(text[s:e + 1]) if s >= 0 and e > s else {}
+        plan = json.loads(text[s : e + 1]) if s >= 0 and e > s else {}
         if plan.get("need") and plan.get("ticker"):
             return plan["ticker"]
     except Exception:

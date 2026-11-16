@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import ALLOWED_ORIGINS
-from app.routers import data, conversations, chat, chart
+from app.routers import chart, chat, conversations, data
 
 app = FastAPI(title="데이터 AI 비서 API", version="1.0.0")
 

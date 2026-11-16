@@ -1,0 +1,17 @@
+# 코드 스타일 규칙 (백엔드 공통)
+# 포맷: black / 린트: ruff — CI(.github/workflows/ci.yml)에서 매 push·PR마다 검사한다.
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes(미사용 import·변수), I: import 정렬
+select = ["E", "W", "F", "I"]
+ignore = ["E501"]  # 줄 길이는 black이 관리 (긴 프롬프트 문자열 허용)
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

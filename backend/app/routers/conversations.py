@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+
 from app.models.schemas import ConversationIn
 from app.services import conversation_service
 
