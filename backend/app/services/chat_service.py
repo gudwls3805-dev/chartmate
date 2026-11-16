@@ -10,6 +10,7 @@
 
 import json
 import re
+import time
 
 from openai import OpenAI
 
@@ -60,6 +61,34 @@ def _detect_ticker(message: str):
     return None
 
 
+# 답변에 넣는 이전 대화는 최근 것만 사용한다. (복원된 긴 대화로 응답이 느려지는 것을 방지)
+MAX_HISTORY_MESSAGES = 12
+
+# gpt-5 계열은 기본 추론 단계가 길어 응답이 느리다. 브리핑은 주어진 수치를 정리하는 작업이라
+# 추론 강도를 최소로 낮춘다. 엔드포인트가 이 옵션을 지원하지 않으면 한 번 실패한 뒤 옵션 없이 호출한다.
+_use_reasoning_effort = True
+
+
+def _complete(messages: list, max_tokens: int):
+    global _use_reasoning_effort
+    if _use_reasoning_effort:
+        try:
+            return client.chat.completions.create(
+                model=MODEL,
+                messages=messages,
+                max_completion_tokens=max_tokens,
+                reasoning_effort="minimal",
+            )
+        except Exception as e:
+            print(f"[chat] reasoning_effort 미지원으로 보임, 옵션 없이 재시도: {e}")
+            _use_reasoning_effort = False
+    return client.chat.completions.create(
+        model=MODEL,
+        messages=messages,
+        max_completion_tokens=max_tokens,
+    )
+
+
 def _plan_with_model(message: str):
     """[폴백] 사전에서 못 찾으면 모델에게 티커를 물어본다. (JSON만 유도)"""
     prompt = (
@@ -69,11 +98,7 @@ def _plan_with_model(message: str):
         f"메시지: {message}"
     )
     try:
-        resp = client.chat.completions.create(
-            model=MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            max_completion_tokens=300,
-        )
+        resp = _complete([{"role": "user", "content": prompt}], 300)
         text = resp.choices[0].message.content or ""
         s, e = text.find("{"), text.rfind("}")
         plan = json.loads(text[s : e + 1]) if s >= 0 and e > s else {}
@@ -105,17 +130,21 @@ SYSTEM_PROMPT = (
 
 
 def chat(user_message: str, history: list, user_id: str | None = None) -> dict:
+    t_start = time.perf_counter()
+
     # 1) 종목 인식 (사전 → 모델 폴백)
     ticker = _detect_ticker(user_message) or _plan_with_model(user_message)
 
-    # 2) 도구 실행
+    # 2) 도구 실행 — 시세 이력은 한 번만 내려받아 두 도구가 함께 쓴다
     market_context = ""
     if ticker:
+        df = market_service.load_history(ticker)
         collected = {
-            "price": market_service.get_price(ticker),
-            "indicators": market_service.get_indicators(ticker),
+            "price": market_service.get_price(ticker, df),
+            "indicators": market_service.get_indicators(ticker, df),
         }
         market_context = json.dumps(collected, ensure_ascii=False)
+    t_market = time.perf_counter()
 
     # 3) 답변 생성
     system_prompt = SYSTEM_PROMPT
@@ -123,14 +152,11 @@ def chat(user_message: str, history: list, user_id: str | None = None) -> dict:
         system_prompt += f"\n\n[조회된 실시간 데이터]\n{market_context}"
 
     messages = [{"role": "system", "content": system_prompt}]
-    messages += history
+    messages += history[-MAX_HISTORY_MESSAGES:]
     messages.append({"role": "user", "content": user_message})
 
-    response = client.chat.completions.create(
-        model=MODEL,
-        messages=messages,
-        max_completion_tokens=2000,
-    )
+    response = _complete(messages, 2000)
+    t_llm = time.perf_counter()
     choice = response.choices[0]
     answer = choice.message.content
     if not answer:
@@ -148,4 +174,19 @@ def chat(user_message: str, history: list, user_id: str | None = None) -> dict:
         conv_data["user_id"] = user_id
     conv = create_conversation(conv_data)
 
-    return {"answer": answer, "conversation_id": conv["id"], "ticker": ticker}
+    t_end = time.perf_counter()
+
+    # 구간별 소요 시간(ms) — 화면에 표시해 응답 속도를 확인하는 데 쓴다
+    timings = {
+        "market_ms": round((t_market - t_start) * 1000),
+        "llm_ms": round((t_llm - t_market) * 1000),
+        "save_ms": round((t_end - t_llm) * 1000),
+        "total_ms": round((t_end - t_start) * 1000),
+    }
+    print(f"[chat] ticker={ticker} timings={timings}")
+    return {
+        "answer": answer,
+        "conversation_id": conv["id"],
+        "ticker": ticker,
+        "timings": timings,
+    }

@@ -199,7 +199,7 @@
     function mdInline(s){
       return escapeHtml(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
     }
-    function addAssistant(text, tookMs){
+    function addAssistant(text, tookMs, timings){
       const el = document.createElement("div");
       el.className = "a";
       const lines = (text || "").split("\n").map(l => l.trim())
@@ -224,7 +224,11 @@
       if (typeof tookMs === "number") {
         const t = document.createElement("div");
         t.className = "took";
-        t.textContent = "응답 시간 " + (tookMs / 1000).toFixed(1) + "초";
+        let label = "응답 시간 " + (tookMs / 1000).toFixed(1) + "초";
+        if (timings && typeof timings.llm_ms === "number") {
+          label += " (시세 조회 " + (timings.market_ms / 1000).toFixed(1) + "초 · AI 생성 " + (timings.llm_ms / 1000).toFixed(1) + "초)";
+        }
+        t.textContent = label;
         el.appendChild(t);
       }
       feed.appendChild(el);
@@ -253,7 +257,7 @@
         removeLoading();
         if (data.answer){
           try { localStorage.removeItem(FRESH_KEY); } catch(e) {}
-          addAssistant(data.answer, performance.now() - t0);
+          addAssistant(data.answer, performance.now() - t0, data.timings);
           history.push({ role:"user", content: msg });
           history.push({ role:"assistant", content: data.answer });
         } else {
