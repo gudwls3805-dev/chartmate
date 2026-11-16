@@ -1,1 +1,28 @@
+name: Uptime check (배포 서비스 가용성 기록)
 
+# 배포된 백엔드(/health)와 프론트엔드가 응답하는지 주기적으로 확인하고,
+# 결과를 Actions 실행 기록으로 남긴다. (운영 가용성 증빙)
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Backend /health
+        run: |
+          # 무료 인스턴스는 잠들어 있을 수 있어 최대 3회, 회당 90초까지 기다린다.
+          for i in 1 2 3; do
+            code=$(curl -s -o body.txt -w "%{http_code} %{time_total}s" --max-time 90 https://chartmate.onrender.com/health || true)
+            echo "$(date -u +%FT%TZ) backend try $i -> $code $(cat body.txt 2>/dev/null)"
+            if grep -q '"status":"ok"' body.txt 2>/dev/null; then exit 0; fi
+            sleep 10
+          done
+          echo "backend health check failed" && exit 1
+      - name: Frontend
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code} %{time_total}s" --max-time 30 https://chartmate-frontend.vercel.app/)
+          echo "$(date -u +%FT%TZ) frontend -> $code"
+          case "$code" in 200*) exit 0;; *) echo "frontend check failed"; exit 1;; esac
