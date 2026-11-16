@@ -8,23 +8,40 @@ ChartMate의 Agent가 호출하는 두 개의 도구:
 이동평균·모멘텀 + 변동성(ATR) 중심. (기획서 6장 참조)
 """
 
+import time
+
 import pandas as pd
 import yfinance as yf
 
+# 같은 종목을 짧은 시간 안에 다시 물으면 시세 서버에 재요청하지 않는다. (응답 속도 개선)
+_CACHE_TTL_SEC = 60
+_cache: dict = {}
+
 
 def _download(ticker: str, period: str = "1y"):
+    key = (ticker.upper(), period)
+    hit = _cache.get(key)
+    if hit and time.monotonic() - hit[0] < _CACHE_TTL_SEC:
+        return hit[1]
     try:
         df = yf.Ticker(ticker).history(period=period)
     except Exception:
         return None
     if df is None or df.empty:
         return None
+    _cache[key] = (time.monotonic(), df)
     return df
 
 
-def get_price(ticker: str) -> dict:
-    """현재가와 전일 대비 등락률(%)을 조회한다."""
-    df = _download(ticker, period="5d")
+def load_history(ticker: str):
+    """1년치 일봉을 한 번만 내려받는다. get_price·get_indicators가 함께 쓴다."""
+    return _download(ticker, period="1y")
+
+
+def get_price(ticker: str, df=None) -> dict:
+    """현재가와 전일 대비 등락률(%)을 조회한다. df를 넘기면 다시 내려받지 않는다."""
+    if df is None:
+        df = _download(ticker, period="5d")
     if df is None:
         return {"error": f"'{ticker}' 시세를 가져오지 못했습니다. 티커를 확인해 주세요."}
     close = df["Close"].dropna()
@@ -50,9 +67,10 @@ def _atr(df, period: int = 14):
     return float(atr) if pd.notna(atr) else None
 
 
-def get_indicators(ticker: str) -> dict:
-    """이동평균(60·200일), 모멘텀(126일), ATR(14)을 계산한다."""
-    df = _download(ticker, period="1y")
+def get_indicators(ticker: str, df=None) -> dict:
+    """이동평균(60·200일), 모멘텀(126일), ATR(14)을 계산한다. df를 넘기면 다시 내려받지 않는다."""
+    if df is None:
+        df = _download(ticker, period="1y")
     if df is None:
         return {"error": f"'{ticker}' 데이터를 가져오지 못했습니다. 티커를 확인해 주세요."}
     close = df["Close"].dropna()

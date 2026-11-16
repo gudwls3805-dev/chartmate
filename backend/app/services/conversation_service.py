@@ -25,6 +25,13 @@ def get_all_conversations() -> list:
     return [{"id": doc.id, **doc.to_dict()} for doc in docs]
 
 
+def get_user_conversations(user_id: str) -> list:
+    """해당 사용자의 대화 목록 (최신순). 다른 사용자의 대화는 포함하지 않는다."""
+    docs = db.collection(COLLECTION).where("user_id", "==", user_id).stream()
+    items = [{"id": doc.id, **doc.to_dict()} for doc in docs]
+    return sorted(items, key=lambda c: c.get("created_at", ""), reverse=True)
+
+
 def get_latest_conversation(user_id: str):
     """해당 사용자의 가장 최근 대화 (없으면 None).
 
